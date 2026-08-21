@@ -9,7 +9,8 @@ struct Options {
     var output = ""
     var line1 = ""
     var line2 = ""
-    var photoMode = "fit"
+    var photoMode = "fill"
+    var photoAnchor = "center"
     var panelStyle = "framed"
     var cropBottom = 0.0
 }
@@ -34,6 +35,7 @@ func parseOptions() -> Options {
         case "--line1": options.line1 = value
         case "--line2": options.line2 = value
         case "--photo-mode": options.photoMode = value
+        case "--photo-anchor": options.photoAnchor = value
         case "--panel-style": options.panelStyle = value
         case "--crop-bottom":
             guard let amount = Double(value), amount >= 0, amount < 0.6 else {
@@ -49,6 +51,9 @@ func parseOptions() -> Options {
     }
     guard options.photoMode == "fit" || options.photoMode == "fill" else {
         fail("--photo-mode must be fit or fill")
+    }
+    guard ["top", "center", "bottom"].contains(options.photoAnchor) else {
+        fail("--photo-anchor must be top, center, or bottom")
     }
     guard options.panelStyle == "framed" || options.panelStyle == "full" else {
         fail("--panel-style must be framed or full")
@@ -85,14 +90,24 @@ func loadImage(_ path: String) -> NSImage {
     return image
 }
 
-func drawImage(_ image: NSImage, in target: NSRect, mode: String) {
+func drawImage(_ image: NSImage, in target: NSRect, mode: String, anchor: String = "center") {
     let sx = target.width / image.size.width
     let sy = target.height / image.size.height
     let scale = mode == "fit" ? min(sx, sy) : max(sx, sy)
     let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+    let originY: CGFloat
+    if mode == "fill" {
+        switch anchor {
+        case "top": originY = target.maxY - size.height
+        case "bottom": originY = target.minY
+        default: originY = target.midY - size.height / 2
+        }
+    } else {
+        originY = target.midY - size.height / 2
+    }
     let rect = NSRect(
         x: target.midX - size.width / 2,
-        y: target.midY - size.height / 2,
+        y: originY,
         width: size.width,
         height: size.height
     )
@@ -110,11 +125,12 @@ let canvasWidth = 1080
 let canvasHeight = 1920
 let abstractHeight = 810
 let photoHeight = canvasHeight - abstractHeight
+let outputScale = 2
 
 guard let bitmap = NSBitmapImageRep(
     bitmapDataPlanes: nil,
-    pixelsWide: canvasWidth,
-    pixelsHigh: canvasHeight,
+    pixelsWide: canvasWidth * outputScale,
+    pixelsHigh: canvasHeight * outputScale,
     bitsPerSample: 8,
     samplesPerPixel: 4,
     hasAlpha: true,
@@ -127,6 +143,7 @@ guard let bitmap = NSBitmapImageRep(
 guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else { fail("Cannot create graphics context") }
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = context
+context.cgContext.scaleBy(x: CGFloat(outputScale), y: CGFloat(outputScale))
 context.imageInterpolation = .high
 
 let canvas = NSRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
@@ -161,7 +178,7 @@ if options.panelStyle == "framed" {
 }
 
 let photoRect = NSRect(x: 0, y: abstractHeight, width: canvasWidth, height: photoHeight)
-drawImage(photo, in: photoRect, mode: options.photoMode)
+drawImage(photo, in: photoRect, mode: options.photoMode, anchor: options.photoAnchor)
 
 if !options.line1.isEmpty || !options.line2.isEmpty {
     let poem = [options.line1, options.line2].filter { !$0.isEmpty }.joined(separator: "\n")
