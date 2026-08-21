@@ -9,7 +9,8 @@ struct Options {
     var output = ""
     var line1 = ""
     var line2 = ""
-    var photoMode = "fit"
+    var photoMode = "fill"
+    var photoAnchor = "center"
     var panelStyle = "framed"
     var cropBottom = 0.0
 }
@@ -34,6 +35,7 @@ func parseOptions() -> Options {
         case "--line1": options.line1 = value
         case "--line2": options.line2 = value
         case "--photo-mode": options.photoMode = value
+        case "--photo-anchor": options.photoAnchor = value
         case "--panel-style": options.panelStyle = value
         case "--crop-bottom":
             guard let amount = Double(value), amount >= 0, amount < 0.6 else {
@@ -49,6 +51,9 @@ func parseOptions() -> Options {
     }
     guard options.photoMode == "fit" || options.photoMode == "fill" else {
         fail("--photo-mode must be fit or fill")
+    }
+    guard ["top", "center", "bottom"].contains(options.photoAnchor) else {
+        fail("--photo-anchor must be top, center, or bottom")
     }
     guard options.panelStyle == "framed" || options.panelStyle == "full" else {
         fail("--panel-style must be framed or full")
@@ -85,14 +90,24 @@ func loadImage(_ path: String) -> NSImage {
     return image
 }
 
-func drawImage(_ image: NSImage, in target: NSRect, mode: String) {
+func drawImage(_ image: NSImage, in target: NSRect, mode: String, anchor: String = "center") {
     let sx = target.width / image.size.width
     let sy = target.height / image.size.height
     let scale = mode == "fit" ? min(sx, sy) : max(sx, sy)
     let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+    let originY: CGFloat
+    if mode == "fill" {
+        switch anchor {
+        case "top": originY = target.maxY - size.height
+        case "bottom": originY = target.minY
+        default: originY = target.midY - size.height / 2
+        }
+    } else {
+        originY = target.midY - size.height / 2
+    }
     let rect = NSRect(
         x: target.midX - size.width / 2,
-        y: target.midY - size.height / 2,
+        y: originY,
         width: size.width,
         height: size.height
     )
@@ -102,19 +117,172 @@ func drawImage(_ image: NSImage, in target: NSRect, mode: String) {
     NSGraphicsContext.restoreGraphicsState()
 }
 
+struct PanelPalette {
+    let wall: NSColor
+    let frame: NSColor
+    let mat: NSColor
+    let primaryText: NSColor
+    let secondaryText: NSColor
+}
+
+func adaptivePanelPalette(for image: NSImage) -> PanelPalette {
+    let sampleWidth = 96
+    let sampleHeight = 72
+    guard let sample = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: sampleWidth,
+        pixelsHigh: sampleHeight,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ), let sampleContext = NSGraphicsContext(bitmapImageRep: sample) else {
+        let wall = NSColor(calibratedWhite: 0.89, alpha: 1)
+        return PanelPalette(
+            wall: wall,
+            frame: NSColor(calibratedWhite: 0.24, alpha: 1),
+            mat: NSColor(calibratedWhite: 0.95, alpha: 1),
+            primaryText: NSColor(calibratedWhite: 0.16, alpha: 0.94),
+            secondaryText: NSColor(calibratedWhite: 0.24, alpha: 0.88)
+        )
+    }
+
+    let previousContext = NSGraphicsContext.current
+    NSGraphicsContext.current = sampleContext
+    sampleContext.imageInterpolation = .high
+    image.draw(
+        in: NSRect(x: 0, y: 0, width: sampleWidth, height: sampleHeight),
+        from: NSRect(origin: .zero, size: image.size),
+        operation: .copy,
+        fraction: 1
+    )
+    sampleContext.flushGraphics()
+    NSGraphicsContext.current = previousContext
+
+    var luminanceTotal: CGFloat = 0
+    var hueX: CGFloat = 0
+    var hueY: CGFloat = 0
+    var saturationTotal: CGFloat = 0
+    var hueWeightTotal: CGFloat = 0
+    var sampleCount: CGFloat = 0
+
+    for y in stride(from: 0, to: sampleHeight, by: 2) {
+        for x in stride(from: 0, to: sampleWidth, by: 2) {
+            guard let raw = sample.colorAt(x: x, y: y),
+                  let color = raw.usingColorSpace(.deviceRGB) else { continue }
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            var alpha: CGFloat = 0
+            color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            guard alpha > 0.5 else { continue }
+
+            let luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+            luminanceTotal += luminance
+            sampleCount += 1
+
+            var hue: CGFloat = 0
+            var saturation: CGFloat = 0
+            var brightness: CGFloat = 0
+            color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+            let chromaWeight = max(0.02, saturation * saturation) * (0.35 + 0.65 * brightness)
+            let angle = hue * 2 * .pi
+            hueX += cos(angle) * chromaWeight
+            hueY += sin(angle) * chromaWeight
+            saturationTotal += saturation * chromaWeight
+            hueWeightTotal += chromaWeight
+        }
+    }
+
+    let meanLuminance = sampleCount > 0 ? luminanceTotal / sampleCount : 0.5
+    var dominantHue: CGFloat = 0.08
+    if hueWeightTotal > 0.001 && (abs(hueX) > 0.001 || abs(hueY) > 0.001) {
+        dominantHue = atan2(hueY, hueX) / (2 * .pi)
+        if dominantHue < 0 { dominantHue += 1 }
+    }
+    let meanSaturation = hueWeightTotal > 0 ? saturationTotal / hueWeightTotal : 0.12
+    let relatedSaturation = min(0.34, max(0.08, meanSaturation * 0.42))
+    let artworkIsDark = meanLuminance < 0.54
+
+    if artworkIsDark {
+        let wall = NSColor(
+            calibratedHue: dominantHue,
+            saturation: relatedSaturation,
+            brightness: 0.90,
+            alpha: 1
+        )
+        return PanelPalette(
+            wall: wall,
+            frame: NSColor(
+                calibratedHue: dominantHue,
+                saturation: min(0.42, relatedSaturation + 0.10),
+                brightness: 0.25,
+                alpha: 1
+            ),
+            mat: NSColor(
+                calibratedHue: dominantHue,
+                saturation: min(0.08, relatedSaturation * 0.32),
+                brightness: 0.96,
+                alpha: 1
+            ),
+            primaryText: NSColor(
+                calibratedHue: dominantHue,
+                saturation: min(0.24, relatedSaturation),
+                brightness: 0.19,
+                alpha: 0.94
+            ),
+            secondaryText: NSColor(
+                calibratedHue: dominantHue,
+                saturation: min(0.20, relatedSaturation * 0.85),
+                brightness: 0.29,
+                alpha: 0.88
+            )
+        )
+    }
+
+    let wall = NSColor(
+        calibratedHue: dominantHue,
+        saturation: min(0.38, relatedSaturation + 0.06),
+        brightness: 0.23,
+        alpha: 1
+    )
+    return PanelPalette(
+        wall: wall,
+        frame: NSColor(
+            calibratedHue: dominantHue,
+            saturation: min(0.26, relatedSaturation),
+            brightness: 0.63,
+            alpha: 1
+        ),
+        mat: NSColor(
+            calibratedHue: dominantHue,
+            saturation: min(0.07, relatedSaturation * 0.28),
+            brightness: 0.93,
+            alpha: 1
+        ),
+        primaryText: NSColor(calibratedWhite: 0.97, alpha: 0.96),
+        secondaryText: NSColor(calibratedWhite: 0.88, alpha: 0.90)
+    )
+}
+
 let options = parseOptions()
 let photo = loadImage(options.photo)
 let abstract = loadImage(options.abstract)
+let panelPalette = adaptivePanelPalette(for: abstract)
 
 let canvasWidth = 1080
 let canvasHeight = 1920
 let abstractHeight = 810
 let photoHeight = canvasHeight - abstractHeight
+let outputScale = 2
 
 guard let bitmap = NSBitmapImageRep(
     bitmapDataPlanes: nil,
-    pixelsWide: canvasWidth,
-    pixelsHigh: canvasHeight,
+    pixelsWide: canvasWidth * outputScale,
+    pixelsHigh: canvasHeight * outputScale,
     bitsPerSample: 8,
     samplesPerPixel: 4,
     hasAlpha: true,
@@ -127,6 +295,7 @@ guard let bitmap = NSBitmapImageRep(
 guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else { fail("Cannot create graphics context") }
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = context
+context.cgContext.scaleBy(x: CGFloat(outputScale), y: CGFloat(outputScale))
 context.imageInterpolation = .high
 
 let canvas = NSRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
@@ -135,8 +304,7 @@ canvas.fill()
 
 let abstractRect = NSRect(x: 0, y: 0, width: canvasWidth, height: abstractHeight)
 if options.panelStyle == "framed" {
-    let wallColor = NSColor(calibratedRed: 0.89, green: 0.86, blue: 0.81, alpha: 1)
-    wallColor.setFill()
+    panelPalette.wall.setFill()
     abstractRect.fill()
 
     let frameRect = NSRect(x: 220, y: 220, width: 640, height: 500)
@@ -146,12 +314,12 @@ if options.panelStyle == "framed" {
     shadow.shadowBlurRadius = 14
     shadow.shadowOffset = NSSize(width: 0, height: -6)
     shadow.set()
-    NSColor(calibratedRed: 0.27, green: 0.20, blue: 0.15, alpha: 1).setFill()
+    panelPalette.frame.setFill()
     NSBezierPath(roundedRect: frameRect, xRadius: 2, yRadius: 2).fill()
     NSGraphicsContext.restoreGraphicsState()
 
     let matRect = frameRect.insetBy(dx: 18, dy: 18)
-    NSColor(calibratedRed: 0.96, green: 0.94, blue: 0.89, alpha: 1).setFill()
+    panelPalette.mat.setFill()
     matRect.fill()
 
     let artworkRect = matRect.insetBy(dx: 22, dy: 22)
@@ -161,7 +329,7 @@ if options.panelStyle == "framed" {
 }
 
 let photoRect = NSRect(x: 0, y: abstractHeight, width: canvasWidth, height: photoHeight)
-drawImage(photo, in: photoRect, mode: options.photoMode)
+drawImage(photo, in: photoRect, mode: options.photoMode, anchor: options.photoAnchor)
 
 if !options.line1.isEmpty || !options.line2.isEmpty {
     let poem = [options.line1, options.line2].filter { !$0.isEmpty }.joined(separator: "\n")
@@ -177,7 +345,7 @@ if !options.line1.isEmpty || !options.line2.isEmpty {
     paragraph.lineSpacing = 7
     let mainAttributes: [NSAttributedString.Key: Any] = [
         .font: font,
-        .foregroundColor: NSColor(calibratedRed: 0.16, green: 0.15, blue: 0.20, alpha: 0.92),
+        .foregroundColor: panelPalette.primaryText,
         .paragraphStyle: paragraph,
         .kern: containsCJK ? 2.0 : 1.2
     ]
@@ -188,7 +356,7 @@ if !options.line1.isEmpty || !options.line2.isEmpty {
             ?? font
         let secondaryAttributes: [NSAttributedString.Key: Any] = [
             .font: secondaryFont,
-            .foregroundColor: NSColor(calibratedRed: 0.22, green: 0.21, blue: 0.28, alpha: 0.88),
+            .foregroundColor: panelPalette.secondaryText,
             .paragraphStyle: paragraph,
             .kern: containsCJK ? 1.6 : 0.8
         ]

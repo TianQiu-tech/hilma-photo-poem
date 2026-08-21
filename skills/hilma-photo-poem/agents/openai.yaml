@@ -1,4 +1,4 @@
 interface:
   display_name: "Hilma Photo Poem"
-  short_description: "Frame symbolic photo-derived art with a poem."
-  default_prompt: "Use $hilma-photo-poem to transform this photo into a vertical abstract editorial diptych with a short poem."
+  short_description: "Create a high-resolution Hilma-informed photo diptych."
+  default_prompt: "Use $hilma-photo-poem to interpret this photo through Hilma af Klint's theory, then create a 2160×3840 photo-and-framed-art diptych with a short English poem."
