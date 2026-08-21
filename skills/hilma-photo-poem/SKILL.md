@@ -9,20 +9,35 @@ Create one finished 9:16 image from one supplied photograph. Preserve the photog
 
 ## Required method
 
-1. Inspect the source photograph. Internally identify three to six decisive visual facts, then decide which relationships are essential and which spatial details may be discarded for a stronger painting. Build a source color map: the dominant ground/field color, major secondary colors, dark structural color, light neutral, and any small accent. Preserve their approximate area hierarchy, temperature, and light-dark roles.
+1. Inspect the source photograph. Identify its decisive visual facts, but do not stop at inventory. Find the image's most fertile tension: for example enclosure versus opening, repetition versus mutation, weight versus ascent, stillness versus flow, or exposure versus concealment. Decide which relationships are essential and which spatial details may be discarded for a stronger painting. Build a source color map: the dominant ground/field color, major secondary colors, dark structural color, light neutral, and any small accent. Preserve their approximate area hierarchy, temperature, and light-dark roles without averaging away the source's strongest color interval.
 2. Write one original English poetic phrase grounded in those visible facts. Prefer two short lines totaling 4–10 words. Avoid place labels, art commentary, slogans, and vague words that could fit any photo.
-3. Read [references/relational-grammar.zh-CN.md](references/relational-grammar.zh-CN.md) and [references/abstract-panel-prompt.zh-CN.md](references/abstract-panel-prompt.zh-CN.md), then generate only one richly layered 4:3 abstract artwork with the built-in image generation tool. Treat the photo as the authority for palette, color proportions, mood, light-dark roles, and selected relational cues—not as a demand to preserve its full spatial structure. Use `assets/style-references/` only for opacity, layering, mark language, and hand-painted character. Generate no frame, wall, or text; those are added deterministically.
-4. Inspect the artwork. Reject it if it depicts recognizable objects literally, copies a reference composition, contains text, reduces the source to one simple logo-like motif, uses washed-out translucent color, or introduces a dominant hue/background that is not supported by the source photo.
-5. Compose rather than regenerate the final image. Resolve `scripts/compose.swift` relative to this `SKILL.md`, then invoke it by absolute path to place the source photo above a solid-color wall, mount the abstract artwork inside a refined frame and mat, and typeset the exact poem below it. Reuse the same abstract asset for layout revisions instead of generating again.
-6. Return the single completed image and its saved path. Do not return analysis, alternate poems, prompt notes, or intermediate panels unless the user asks.
+3. Read [references/relational-grammar.zh-CN.md](references/relational-grammar.zh-CN.md) and [references/abstract-panel-prompt.zh-CN.md](references/abstract-panel-prompt.zh-CN.md). Interpret the photograph inside af Klint's theoretical frame: polarity, evolution through stages, reciprocal transformation, and movement toward a larger whole; nature, geometry, and spiritual inquiry should operate as one system rather than as separate motifs.
+4. Privately imagine two or three different formal realizations of that interpretation, all inside af Klint's geometric-organic and diagrammatic grammar. Choose the one whose circles, ovals, spirals, botanical growth, axes, partitions, bands, grids, triangles, or arcs express the source relationship with the clearest inner necessity. Innovation must come from a new relationship or sequence inside this grammar—not from arbitrary rupture, generalized surrealism, or expressive turbulence.
+5. Generate one richly layered 4:3 abstract artwork. The current photograph is the sole authority for content, palette hierarchy, mood, and source relationships. When visual references are useful, pass only the photograph plus one or two selected images from `assets/style-references/` that best clarify af Klint's formal grammar; identify them as artist-language references and forbid copying their composition or symbols. Never pass a prior generated image, a completed diptych, or anything from `assets/success-examples/` to the image model. Generate no frame, wall, or text; those are added deterministically.
+6. Inspect the artwork first for af Klint coherence, then for originality. It should show a legible geometric-organic order, flat opaque color fields, connected symbolic forms, and a process of polarity, progression, transformation, or integration. Reject expressionistic clouds, painterly explosions, generic cosmic biomorphism, free-form surrealism, purely Bauhaus geometry, decorative sacred-geometry posters, literal objects, copied compositions, text, washed-out color, and unsupported dominant hues. Originality is required, but it must remain visibly generated by af Klint's theory and grammar. If one targeted regeneration is needed, correct the specific failure without introducing prior outputs as references.
+7. Compose rather than regenerate the final image. Resolve `scripts/compose.swift` relative to this `SKILL.md`, then invoke it by absolute path to place the source photo above a solid-color wall, mount the abstract artwork inside a refined frame and mat, and typeset the exact poem below it. Reuse the same abstract asset for layout revisions instead of generating again.
+8. Return the single completed image and its saved path. Do not return analysis, alternate poems, prompt notes, or intermediate panels unless the user asks.
+
+## Hilma-grounded invention standard
+
+The lower panel must be an autonomous artwork whose invention remains inside af Klint's conceptual and formal framework.
+
+- Begin with a theoretical operation, not a motif list: two states seek integration; one form evolves through stages; a crossing produces a third state; a natural rhythm becomes a measured spiritual system.
+- Make the painting readable as an ordered sequence or field before adding complexity. Axes, partitions, scale progressions, mirrored differences, rings, botanical curves, and cellular forms should clarify how transformation occurs.
+- Include one source-grounded invention that extends this system: a newly generated intermediary, a meaningful reversal, a change of scale, or a transition between geometric and organic states. Do not use arbitrary rupture as a shortcut to originality.
+- Preserve af Klint's characteristic balance between diagrammatic clarity and living growth. Hand-painted variation may soften the system, but gestural brushwork, turbulent clouds, and amorphous painterly drama must not replace it.
+- Let forms change state. Repetition should develop; crossings should alter both participants; containment should create pressure or release. Avoid both static symbol inventories and unrelated expressive forms.
+- Protect chromatic energy through source-derived flat fields and decisive intervals. Richness comes from opaque color relationships and layered structure, not impasto, digital glow, atmospheric blur, or explosive texture.
+- Do not optimize toward previous outputs. Every photograph must be interpreted afresh from the theory and the source; recurring solutions require a reason in the current photograph.
+- A successful work contains recognition and surprise while remaining unmistakably compatible with af Klint's visual thought. “Creative but outside the grammar” fails just as surely as “correct but lifeless.”
 
 ## Layout invariants
 
-- Final canvas: exactly 9:16, default 1080 × 1920.
-- Lower wall panel: exactly 4:3 across the full canvas width, 1080 × 810, occupying 42.1875% of total height.
-- Upper photo slot: 1080 × 1110, occupying the remaining 57.8125%.
+- Final canvas: exactly 9:16 and high-resolution by default, 2160 × 3840 PNG. Do not treat a 1080 × 1920 preview as the final deliverable.
+- Lower wall panel: exactly 4:3 across the full canvas width, 2160 × 1620, occupying 42.1875% of total height.
+- Upper photo slot: 2160 × 2220, occupying the remaining 57.8125%.
 - Separate the two regions with a clean color boundary: the photo stays photographic while the lower region is a uniform warm neutral wall sampled to harmonize with the photo.
-- Keep the photo pixel-faithful. Default to `--photo-mode fit` so nothing is cropped; use `fill` only when the user accepts a crop or the crop is visibly harmless.
+- Keep the photo pixel-faithful: crop and resample only; never regenerate, extend, filter, or recolor it. Default to `--photo-mode fill` so the photograph covers the entire upper slot edge-to-edge with no letterboxing, blank margins, or exposed wall. Use `--photo-anchor top`, `center`, or `bottom` to protect the important subject. Use `fit` only when the user explicitly prioritizes the complete uncropped photo and accepts visible margins.
 - Place the abstract artwork in a restrained dark-wood or muted-metal frame with an ivory mat. The framed work should occupy about 54%–62% of the lower panel width, leaving generous wall around it.
 - Use only a subtle natural frame shadow. Exclude staged furniture, floors, lamps, plants, gallery signage, and photorealistic room decoration.
 - Put the English poem on the wall below the frame. Never render it inside the generated artwork or over the photograph.
@@ -41,7 +56,8 @@ swift /absolute/path/to/hilma-photo-poem/scripts/compose.swift \
   --line1 "Between the cliffs" \
   --line2 "the sea keeps its blue" \
   --panel-style framed \
-  --photo-mode fit
+  --photo-mode fill \
+  --photo-anchor center
 ```
 
 Omit `--line2` when unnecessary. Use a new output filename instead of overwriting an existing file unless replacement was explicitly requested.
@@ -56,9 +72,10 @@ If Swift cannot write its default module cache in a sandbox, create `/private/tm
 - When literal spatial fidelity would make the result stiff or illustrative, discard it. Maintain kinship with the photograph through palette hierarchy, temperature, value, mood, directional energy, repeated accents, and a few carefully chosen relationships.
 - Treat polarity as a compositional relationship between complementary forces moving toward balance or wholeness, not as a fixed male/female color code and not as a claim about the photographed subject.
 - Use [assets/style-references](assets/style-references) to calibrate pigment density, contrast, layering, and hand-painted character only. Never transfer their palette wholesale or reproduce their subjects, exact geometry, letters, figures, or symbol arrangements.
+- Use [assets/success-examples](assets/success-examples) only after generation as optional human-facing comparison material. Never include them, prior outputs, or completed diptychs in an image-generation call; they are not a self-training set.
 - Do not reproduce, trace, or closely paraphrase any specific Hilma af Klint painting, title, letter sequence, or esoteric symbol arrangement.
 - Do not invent symbolic meanings for people or personal events. Use shapes relationally, not as claims about the subject.
 - Do not redraw, retouch, extend, filter, recolor, or otherwise alter the photographic region.
 - Do not ask the image model to render the wall, frame, mat, or final poem; these are fast deterministic layout elements.
 - If a usable local path for the source image is unavailable, ask the user to attach or provide the file rather than silently accepting a regenerated approximation.
-
+- Before delivery, inspect the final image and verify its pixel dimensions. The default final must report 2160 × 3840, the photo must touch all four edges of its upper slot, and the photographic region must contain no generated pixels.
